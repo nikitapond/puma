@@ -92,14 +92,15 @@ class AuxResults:
         var_list += sum([t.cuts.variables for t in taggers if t.cuts is not None], [])
         var_list = list(set(var_list + self.perf_vars))
 
-        aux_labels = get_aux_labels()
+        aux_labels = taggers[0].aux_tasks
 
         aux_var_list = sum([list(t.aux_variables.values()) for t in taggers], [])
         aux_var_list += sum([list(aux_labels.values()) for t in taggers], [])
-        aux_var_list = list(set(aux_var_list))
+        aux_var_list = list(set(aux_var_list)) + ['valid']
 
         # load data
         reader = H5Reader(file_path, precision="full")
+
         data = reader.load({key: var_list}, num_jets)[key]
         aux_reader = H5Reader(file_path, precision="full", jets_name="tracks")
         aux_data = aux_reader.load({aux_key: aux_var_list}, num_jets)[aux_key]
@@ -130,6 +131,7 @@ class AuxResults:
             tagger.labels = np.array(sel_data[label_var], dtype=[(label_var, "i4")])
             for task in tagger.aux_tasks:
                 tagger.aux_scores[task] = sel_aux_data[tagger.aux_variables[task]]
+                tagger.aux_scores[task][~sel_aux_data["valid"]] = -1
             for task in aux_labels:
                 tagger.aux_labels[task] = sel_aux_data[aux_labels[task]]
             if perf_vars is None:
@@ -187,6 +189,7 @@ class AuxResults:
         xlabel: str = r"$p_{T}$ [GeV]",
         perf_var: str = "pt",
         incl_vertexing: bool = False,
+        vtx_metrics_kwargs: dict = {},
         **kwargs,
     ):
         if isinstance(flavour, str):
@@ -253,7 +256,7 @@ class AuxResults:
             truth_indices, reco_indices = tagger.vertex_indices(incl_vertexing=incl_vertexing)
 
             # calculate vertexing metrics
-            vtx_metrics = calculate_vertex_metrics(reco_indices, truth_indices)
+            vtx_metrics = calculate_vertex_metrics(reco_indices, truth_indices, **vtx_metrics_kwargs)
 
             # filter out jets of chosen flavour - if flavour is not set, use all
             if flavour:

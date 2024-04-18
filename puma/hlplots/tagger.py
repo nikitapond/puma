@@ -24,7 +24,8 @@ class Tagger:
     reference: bool = False
     colour: str = None
     fxs: dict[str, float] = field(default_factory=lambda: {"fc": 0.1, "fb": 0.2})
-    aux_tasks: list = field(default_factory=lambda: list(get_aux_labels().keys()))
+    aux_tasks: list = None
+    aux_variables: dict = None
     sample_path: Path = None
 
     # this is only read by the Results class
@@ -50,9 +51,28 @@ class Tagger:
             self.label = self.name
         if isinstance(self.cuts, list):
             self.cuts = Cuts.from_list(self.cuts)
-        if self.aux_tasks is not None:
-            self.aux_scores = dict.fromkeys(self.aux_tasks)
-            self.aux_labels = dict.fromkeys(self.aux_tasks)
+        
+        if self.aux_tasks is None:
+            self.aux_tasks = field(default_factory=lambda: list(get_aux_labels().keys()))
+        
+        self.aux_scores = dict.fromkeys(self.aux_tasks)
+        self.aux_labels = dict.fromkeys(self.aux_tasks)
+        
+
+        if not self.aux_variables:
+            self.aux_variables = {}
+
+            for aux_type in self.aux_tasks:
+                if aux_type == "vertexing":
+                    if self.name in {"SV1", "JF"}:
+                        self.aux_variables[aux_type] = f"{self.name}VertexIndex"
+                    else:
+                        self.aux_variables[aux_type] = f"{self.name}_VertexIndex"
+                elif aux_type == "track_origin":
+                    self.aux_variables[aux_type] = f"{self.name}_TrackOrigin"
+                else:
+                    raise ValueError(f"{aux_type} is not a recognized aux task.")
+
         if self.sample_path is not None:
             self.sample_path = Path(self.sample_path)
 
@@ -97,34 +117,34 @@ class Tagger:
         """
         return [f"{self.name}_{prob}" for prob in self.probabilities]
 
-    @property
-    def aux_variables(self):
-        """Return a dict of the auxiliary outputs of the tagger for each task.
+    # @property
+    # def aux_variables(self):
+    #     """Return a dict of the auxiliary outputs of the tagger for each task.
 
-        Returns
-        -------
-        aux_outputs: dict
-            Dictionary of auxiliary output variables of the tagger
+    #     Returns
+    #     -------
+    #     aux_outputs: dict
+    #         Dictionary of auxiliary output variables of the tagger
 
-        Raises
-        ------
-        ValueError
-            If element in self.aux_tasks is unrecognized
-        """
-        aux_outputs = {}
+    #     Raises
+    #     ------
+    #     ValueError
+    #         If element in self.aux_tasks is unrecognized
+    #     """
+    #     aux_outputs = {}
 
-        for aux_type in self.aux_tasks:
-            if aux_type == "vertexing":
-                if self.name in {"SV1", "JF"}:
-                    aux_outputs[aux_type] = f"{self.name}VertexIndex"
-                else:
-                    aux_outputs[aux_type] = f"{self.name}_VertexIndex"
-            elif aux_type == "track_origin":
-                aux_outputs[aux_type] = f"{self.name}_TrackOrigin"
-            else:
-                raise ValueError(f"{aux_type} is not a recognized aux task.")
+    #     for aux_type in self.aux_tasks:
+    #         if aux_type == "vertexing":
+    #             if self.name in {"SV1", "JF"}:
+    #                 aux_outputs[aux_type] = f"{self.name}VertexIndex"
+    #             else:
+    #                 aux_outputs[aux_type] = f"{self.name}_VertexIndex"
+    #         elif aux_type == "track_origin":
+    #             aux_outputs[aux_type] = f"{self.name}_TrackOrigin"
+    #         else:
+    #             raise ValueError(f"{aux_type} is not a recognized aux task.")
 
-        return aux_outputs
+    #     return aux_outputs
 
     def extract_tagger_scores(
         self, source: object, source_type: str = "data_frame", key: str | None = None

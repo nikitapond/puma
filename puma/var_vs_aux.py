@@ -10,7 +10,20 @@ from puma.metrics import eff_err
 from puma.utils import logger
 from puma.utils.histogram import save_divide
 from puma.var_vs_var import VarVsVar, VarVsVarPlot
+def standard_error(arr: np.ndarray) -> np.ndarray:
+    """Calculate standard error of the mean for an array.
 
+    Parameters
+    ----------
+    arr : np.ndarray
+        Array to calculate standard error for
+
+    Returns
+    -------
+    np.ndarray
+        Standard error of the mean
+    """
+    return np.std(arr) / np.sqrt(len(arr))
 
 class VarVsAux(VarVsVar):  # pylint: disable=too-many-instance-attributes
     """var_vs_aux class storing info about aux task classification performance."""
@@ -227,7 +240,7 @@ class VarVsAux(VarVsVar):  # pylint: disable=too-many-instance-attributes
         total_reco = list(
             zip(
                 list(map(np.mean, self.reco_binned)),
-                list(map(np.std, self.reco_binned)),
+                list(map(standard_error, self.reco_binned)),
             )
         )
         logger.debug("Retrieved total number of reconstructed objects: %s", total_reco)
