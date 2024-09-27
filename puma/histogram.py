@@ -589,7 +589,7 @@ class HistogramPlot(PlotBase):
                 x=elem.bin_edges,
                 y1=bottom_error,
                 y2=top_error,
-                color='black',
+                color="black",
                 facecolor="black",
                 hatch="////",
                 alpha=0.3,
