@@ -51,6 +51,10 @@ class Tagger:
     roc_path: dict[str, Path] | None = None
     disc_path: dict[str, Path] | None = None
 
+    # Regression target mapping: {target_name: column_name_in_h5}
+    # e.g. {"ptFromTruthDressedWZJet": "GN3V00_ptFromTruthDressedWZJet"}
+    regression_targets: dict[str, str] | None = None
+
     # Used only by YUMA
     yaml_name: str | None = None
 

@@ -162,6 +162,8 @@ class Results:
             "roc": self.plot_rocs,
             "peff": self.plot_var_perf,
             "scan": self.plot_fraction_scans,
+            "reg_profile": self.plot_regression_profile,
+            "reg_response": self.plot_regression_response,
         }
         self.saved_plots = []
 
@@ -314,6 +316,10 @@ class Results:
         var_list = sum([tagger.variables for tagger in taggers], [label_var])
         var_list += cuts.variables
         var_list += sum([t.cuts.variables for t in taggers if t.cuts is not None], [])
+        # Add regression target columns from each tagger
+        for tagger in taggers:
+            if tagger.regression_targets:
+                var_list.extend(tagger.regression_targets.values())
         var_list = list(set(var_list + self.perf_vars))
 
         # load data
@@ -350,6 +356,16 @@ class Results:
                         tagger.perf_vars[perf_var] = sel_data[perf_var]
             else:
                 tagger.perf_vars = sel_perf_vars
+
+            # Load regression target columns into perf_vars
+            if tagger.regression_targets:
+                if tagger.perf_vars is None:
+                    tagger.perf_vars = {}
+                for col_name in tagger.regression_targets.values():
+                    if any(x in col_name.lower() for x in ["pt", "mass"]):
+                        tagger.perf_vars[col_name] = sel_data[col_name] * 0.001
+                    else:
+                        tagger.perf_vars[col_name] = sel_data[col_name]
 
     def __getitem__(self, tagger_name: str):
         """Retrieve Tagger object.
@@ -1340,6 +1356,120 @@ class Results:
         # Draw and save the plot
         plot.draw()
         self.save(plot, "scan", "fraction_scan", suffix)
+
+    def plot_regression_profile(
+        self,
+        regression_target: str,
+        truth_var: str,
+        reco_var: str | None = None,
+        x_bins: list[float] | None = None,
+        x_label: str | None = None,
+        flavour_id: int | None = None,
+        suffix: str | None = None,
+        **kwargs: Any,
+    ):
+        """Plot regression response profile (median and resolution vs truth variable).
+
+        Parameters
+        ----------
+        regression_target : str
+            Name of the regression target (key in tagger.regression_targets).
+        truth_var : str
+            Column name for truth values (must be in perf_vars).
+        reco_var : str or None, optional
+            Column name for reco values (nominal calibration reference), by default None.
+        x_bins : list[float] or None, optional
+            Bin edges for the x-axis (in GeV), by default None (auto).
+        x_label : str or None, optional
+            X-axis label, by default auto-generated.
+        flavour_id : int or None, optional
+            If set, restrict to jets with this flavour label, by default None.
+        suffix : str or None, optional
+            Suffix for output filename, by default None.
+        **kwargs : Any
+            Additional keyword arguments passed to ``plot_response_profile``.
+        """
+        from puma.hlplots.regression import plot_response_profile
+
+        reg_taggers = [t for t in self.taggers.values() if t.regression_targets is not None]
+        if not reg_taggers:
+            logger.warning("No taggers with regression_targets found, skipping reg_profile")
+            return
+
+        plot_median, plot_resolution = plot_response_profile(
+            taggers=reg_taggers,
+            regression_target=regression_target,
+            truth_var=truth_var,
+            reco_var=reco_var,
+            x_bins=x_bins,
+            x_label=x_label,
+            flavour_id=flavour_id,
+            label_var=self.label_var,
+            atlas_first_tag=self.atlas_first_tag,
+            atlas_second_tag=self.atlas_second_tag,
+            **kwargs,
+        )
+
+        self.save(plot_median, "reg_profile", f"{regression_target}_median", suffix)
+        self.save(plot_resolution, "reg_profile", f"{regression_target}_resolution", suffix)
+
+    def plot_regression_response(
+        self,
+        regression_target: str,
+        truth_var: str,
+        reco_var: str | None = None,
+        bins: int = 80,
+        bins_range: list[float] | tuple[float, float] = (0.5, 1.5),
+        flavour_id: int | None = None,
+        suffix: str | None = None,
+        **kwargs: Any,
+    ):
+        """Plot overall regression response distribution.
+
+        Parameters
+        ----------
+        regression_target : str
+            Name of the regression target (key in tagger.regression_targets).
+        truth_var : str
+            Column name for truth values (must be in perf_vars).
+        reco_var : str or None, optional
+            Column name for reco values (nominal calibration reference), by default None.
+        bins : int, optional
+            Number of histogram bins, by default 80.
+        bins_range : list[float] or tuple[float, float], optional
+            Range for the histogram, by default (0.5, 1.5).
+        flavour_id : int or None, optional
+            If set, restrict to jets with this flavour label, by default None.
+        suffix : str or None, optional
+            Suffix for output filename, by default None.
+        **kwargs : Any
+            Additional keyword arguments passed to ``plot_response_distribution``.
+        """
+        from puma.hlplots.regression import plot_response_distribution
+
+        reg_taggers = [t for t in self.taggers.values() if t.regression_targets is not None]
+        if not reg_taggers:
+            logger.warning("No taggers with regression_targets found, skipping reg_response")
+            return
+
+        if isinstance(bins_range, list):
+            bins_range = tuple(bins_range)
+
+        plot = plot_response_distribution(
+            taggers=reg_taggers,
+            regression_target=regression_target,
+            truth_var=truth_var,
+            reco_var=reco_var,
+            bins=bins,
+            bins_range=bins_range,
+            flavour_id=flavour_id,
+            label_var=self.label_var,
+            atlas_first_tag=self.atlas_first_tag,
+            atlas_second_tag=self.atlas_second_tag,
+            **kwargs,
+        )
+
+        self.save(plot, "reg_response", f"{regression_target}_response", suffix)
 
     def make_plot(self, plot_type: str, kwargs: dict):
         """Make a plot.

@@ -16,7 +16,7 @@ from puma.hlplots.tagger import Tagger
 from puma.hlplots.yutils import combine_suffixes, get_included_taggers, get_tagger_name
 from puma.utils import logger
 
-ALL_PLOTS = ["roc", "scan", "disc", "probs", "peff"]
+ALL_PLOTS = ["roc", "scan", "disc", "probs", "peff", "reg_profile", "reg_response"]
 
 
 def get_args(args: Any):
@@ -194,7 +194,18 @@ class YumaConfig:
     @property
     def peff_vars(self):
         """Iterates plots and returns a list of all performance variables."""
-        return list({p["plot_kwargs"].get("perf_var", "pt") for p in self.plots.get("peff", [])})
+        perf_vars = {p["plot_kwargs"].get("perf_var", "pt") for p in self.plots.get("peff", [])}
+
+        # Collect truth_var and reco_var from regression plot configs
+        for plot_type in ("reg_profile", "reg_response"):
+            for p in self.plots.get(plot_type, []):
+                pk = p.get("plot_kwargs", {})
+                if truth_var := pk.get("truth_var"):
+                    perf_vars.add(truth_var)
+                if reco_var := pk.get("reco_var"):
+                    perf_vars.add(reco_var)
+
+        return list(perf_vars)
 
     def make_plots(self, plot_types: list[str]) -> None:
         """Makes all desired plots.
