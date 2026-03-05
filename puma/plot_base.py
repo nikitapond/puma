@@ -726,7 +726,7 @@ class PlotBase(PlotObject):
         """
         assert self.axis_top is not None
         xlabel_args = {
-            "xlabel": self.xlabel if label is None else label,
+            "xlabel": (self.xlabel if label is None else label) + " [CCRA]",
             "horizontalalignment": "right",
             "x": 1.0,
             "fontsize": self.label_fontsize,
